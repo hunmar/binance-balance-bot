@@ -49,17 +49,22 @@ def balance_wallets():
     total_balance = spot_balance + futures_balance
     desired_balance = total_balance / 2
 
-    if spot_balance > desired_balance:
-        amount_to_transfer = spot_balance - desired_balance
-        print(f"Transferring {amount_to_transfer} USDT from Spot to Futures...")
-        transfer_funds('spot', 'futures', amount_to_transfer)
-    elif futures_balance > desired_balance:
-        amount_to_transfer = futures_balance - desired_balance
-        print(f"Transferring {amount_to_transfer} USDT from Futures to Spot...")
-        transfer_funds('futures', 'spot', amount_to_transfer)
-    else:
-        print("Balances are already even.")
+    # Calculate the percentage difference between the Spot and Futures balances
+    balance_diff_percentage = abs(spot_balance - futures_balance) / total_balance * 100
 
+    if balance_diff_percentage > 5:  # If the difference is more than 5%
+        if spot_balance > desired_balance:
+            amount_to_transfer = spot_balance - desired_balance
+            print(f"Transferring {amount_to_transfer} USDT from Spot to Futures...")
+            transfer_funds('spot', 'futures', amount_to_transfer)
+        elif futures_balance > desired_balance:
+            amount_to_transfer = futures_balance - desired_balance
+            print(f"Transferring {amount_to_transfer} USDT from Futures to Spot...")
+            transfer_funds('futures', 'spot', amount_to_transfer)
+    else:
+        print("The balance difference is less than 5%. No transfer required.")
+
+    # Show updated balances
     spot_balance = get_balance('spot')
     futures_balance = get_balance('futures')
     print(f"Updated Spot Wallet Balance: {spot_balance} USDT")

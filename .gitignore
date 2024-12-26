@@ -59,7 +59,6 @@ celerybeat.pid
 
 # Environments
 .env
-.env.*
 # local env files
 .local
 .local.*
