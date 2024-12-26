@@ -11,3 +11,4 @@ python3 /home/hunmar/binance-balance-bot/balance_wallets.py >> $LOGFILE 2>&1
 
 # Log end time
 echo "Finished script at $(date)" >> $LOGFILE
+echo "==========================" >> $LOGFILE
