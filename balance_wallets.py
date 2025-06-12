@@ -12,6 +12,12 @@ API_SECRET = os.getenv('BINANCE_API_SECRET')
 BALANCE_SPOT_RATIO = float(os.getenv('BALANCE_SPOT_RATIO', 50))  # Default to 50 if not set
 BALANCE_FUTURES_RATIO = float(os.getenv('BALANCE_FUTURES_RATIO', 50))  # Default to 50 if not set
 
+# BNB balance configuration
+BALANCE_BNB = os.getenv('BALANCE_BNB', 'false').lower() == 'true'  # Default to false
+BNB_SPOT_RATIO = float(os.getenv('BNB_SPOT_RATIO', 50))  # Default to 50 if not set
+BNB_FUTURES_RATIO = float(os.getenv('BNB_FUTURES_RATIO', 50))  # Default to 50 if not set
+BNB_MIN_DIFF_PERCENT = float(os.getenv('BNB_MIN_DIFF_PERCENT', 5))  # Minimum difference to trigger a transfer
+
 # Initialize the Binance client
 client = Client(API_KEY, API_SECRET)
 
@@ -44,50 +50,81 @@ def transfer_funds(from_wallet, to_wallet, amount, asset='USDT'):
         print(f"Error transferring funds: {e}")
         return None
 
-def balance_wallets():
-    """Balance the Spot and Futures wallets"""
-    spot_balance = get_balance('spot')
-    futures_balance = get_balance('futures')
+def balance_wallets_for_asset(asset='USDT', spot_ratio=None, futures_ratio=None, min_diff_percent=5):
+    """Balance the Spot and Futures wallets for a specific asset"""
+    spot_balance = get_balance('spot', asset)
+    futures_balance = get_balance('futures', asset)
 
-    print(f"Spot Wallet Balance: {spot_balance} USDT")
-    print(f"Futures Wallet Balance: {futures_balance} USDT")
+    print(f"\n--- Balancing {asset} ---")
+    print(f"Spot Wallet Balance: {spot_balance} {asset}")
+    print(f"Futures Wallet Balance: {futures_balance} {asset}")
 
     total_balance = spot_balance + futures_balance
-    print(f"Total Balance (Spot + Futures): {total_balance} USDT")
+    if total_balance == 0:
+        print(f"No {asset} balance found in either wallet.")
+        return
+
+    print(f"Total Balance (Spot + Futures): {total_balance} {asset}")
 
     # Adjust based on Spot ratio or Futures ratio
-    if BALANCE_SPOT_RATIO != 50:  # If Spot ratio is provided
-        spot_target = total_balance * (BALANCE_SPOT_RATIO / 100)
+    if spot_ratio is not None:  # If Spot ratio is provided
+        spot_target = total_balance * (spot_ratio / 100)
         futures_target = total_balance - spot_target
-        print(f"Target Spot Wallet Balance: {spot_target} USDT ({BALANCE_SPOT_RATIO}% of total balance)")
-        print(f"Target Futures Wallet Balance: {futures_target} USDT ({100 - BALANCE_SPOT_RATIO}% of total balance)")
-    else:  # If Futures ratio is provided
-        futures_target = total_balance * (BALANCE_FUTURES_RATIO / 100)
+        print(f"Target Spot Wallet Balance: {spot_target} {asset} ({spot_ratio}% of total balance)")
+        print(f"Target Futures Wallet Balance: {futures_target} {asset} ({100 - spot_ratio}% of total balance)")
+    elif futures_ratio is not None:  # If Futures ratio is provided
+        futures_target = total_balance * (futures_ratio / 100)
         spot_target = total_balance - futures_target
-        print(f"Target Futures Wallet Balance: {futures_target} USDT ({BALANCE_FUTURES_RATIO}% of total balance)")
-        print(f"Target Spot Wallet Balance: {spot_target} USDT ({100 - BALANCE_FUTURES_RATIO}% of total balance)")
+        print(f"Target Futures Wallet Balance: {futures_target} {asset} ({futures_ratio}% of total balance)")
+        print(f"Target Spot Wallet Balance: {spot_target} {asset} ({100 - futures_ratio}% of total balance)")
+    else:
+        # Default to 50/50 if neither ratio is provided
+        spot_target = total_balance * 0.5
+        futures_target = total_balance * 0.5
+        print(f"Target Spot Wallet Balance: {spot_target} {asset} (50% of total balance)")
+        print(f"Target Futures Wallet Balance: {futures_target} {asset} (50% of total balance)")
 
     # Calculate the percentage difference
-    balance_diff_percentage = abs(spot_balance - futures_balance) / total_balance * 100
-    print(f"Balance Difference: {balance_diff_percentage:.2f}%")
+    if total_balance > 0:
+        balance_diff_percentage = abs(spot_balance - spot_target) / total_balance * 100
+        print(f"Balance Difference: {balance_diff_percentage:.2f}%")
 
-    if balance_diff_percentage > 5:  # If the difference is more than 5%
-        if spot_balance > spot_target:
-            amount_to_transfer = spot_balance - spot_target
-            print(f"Transferring {amount_to_transfer} USDT from Spot to Futures...")
-            transfer_funds('spot', 'futures', amount_to_transfer)
-        elif futures_balance > futures_target:
-            amount_to_transfer = futures_balance - futures_target
-            print(f"Transferring {amount_to_transfer} USDT from Futures to Spot...")
-            transfer_funds('futures', 'spot', amount_to_transfer)
-    else:
-        print("The balance difference is less than 5%. No transfer required.")
+        if balance_diff_percentage > min_diff_percent:  # If the difference is more than the minimum percentage
+            if spot_balance > spot_target:
+                amount_to_transfer = spot_balance - spot_target
+                print(f"Transferring {amount_to_transfer:.8f} {asset} from Spot to Futures...")
+                transfer_funds('spot', 'futures', amount_to_transfer, asset)
+            elif futures_balance > futures_target:
+                amount_to_transfer = futures_balance - futures_target
+                print(f"Transferring {amount_to_transfer:.8f} {asset} from Futures to Spot...")
+                transfer_funds('futures', 'spot', amount_to_transfer, asset)
+        else:
+            print(f"The balance difference is less than {min_diff_percent}%. No transfer required.")
 
-    # Show updated balances
-    spot_balance = get_balance('spot')
-    futures_balance = get_balance('futures')
-    print(f"Updated Spot Wallet Balance: {spot_balance} USDT")
-    print(f"Updated Futures Wallet Balance: {futures_balance} USDT")
+        # Show updated balances
+        spot_balance = get_balance('spot', asset)
+        futures_balance = get_balance('futures', asset)
+        print(f"Updated Spot Wallet Balance: {spot_balance} {asset}")
+        print(f"Updated Futures Wallet Balance: {futures_balance} {asset}")
+
+def balance_wallets():
+    """Balance the Spot and Futures wallets for all configured assets"""
+    # Balance USDT
+    balance_wallets_for_asset(
+        asset='USDT',
+        spot_ratio=BALANCE_SPOT_RATIO if BALANCE_SPOT_RATIO != 50 else None,
+        futures_ratio=BALANCE_FUTURES_RATIO if BALANCE_SPOT_RATIO == 50 else None,
+        min_diff_percent=5
+    )
+    
+    # Balance BNB if enabled
+    if BALANCE_BNB:
+        balance_wallets_for_asset(
+            asset='BNB',
+            spot_ratio=BNB_SPOT_RATIO if BNB_SPOT_RATIO != 50 else None,
+            futures_ratio=BNB_FUTURES_RATIO if BNB_SPOT_RATIO == 50 else None,
+            min_diff_percent=BNB_MIN_DIFF_PERCENT
+        )
 
 if __name__ == "__main__":
     balance_wallets()

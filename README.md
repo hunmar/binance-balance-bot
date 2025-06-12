@@ -6,6 +6,7 @@ This Python script balances USDT between your Spot and Futures wallets on Binanc
 
 - Fetches the current USDT balance in both Spot and Futures wallets.
 - Transfers USDT to balance the amount evenly between both wallets.
+- Supports balancing BNB between Spot and Futures wallets.
 
 ## Requirements
 
@@ -110,47 +111,62 @@ The output of the script, including any errors, will be logged in the `cron.log`
 
 ### Adjustable Wallet Balance Ratios
 
-#### New Feature: Adjustable Spot/Futures Balance Ratio
+#### USDT Balance Configuration
 
-The Binance Balance Bot now supports an adjustable Spot/Futures wallet balance ratio. This allows you to specify the desired balance between your Spot and Futures wallets without needing to manually calculate percentages for each wallet.
+The Binance Balance Bot supports an adjustable Spot/Futures wallet balance ratio for USDT. This allows you to specify the desired balance between your Spot and Futures wallets.
 
-#### Configuration
+#### USDT Configuration
 
-You can set the desired balance ratio for the Spot wallet using an environment variable. The bot will automatically adjust the balance to match the ratio you specify.
+You can set the desired balance ratio for the Spot wallet using environment variables:
 
 1. **`BALANCE_SPOT_RATIO`**:
-   - This environment variable determines the percentage of the total balance that should be allocated to the Spot wallet.
+   - This environment variable determines the percentage of the total USDT balance that should be allocated to the Spot wallet.
    - The value should be an integer between 0 and 100.
    - The Futures wallet will automatically receive the remaining percentage of the total balance.
 
    Example:
-   - If you set `BALANCE_SPOT_RATIO=50`, the bot will ensure that 50% of the total balance is in the Spot wallet and 50% is in the Futures wallet.
+   - If you set `BALANCE_SPOT_RATIO=60`, the bot will ensure that 60% of the total USDT balance is in the Spot wallet and 40% is in the Futures wallet.
 
-#### Example Usage:
+#### BNB Balance Configuration (New Feature)
 
-1. **Set the Balance Ratio**:
-   Set the `BALANCE_SPOT_RATIO` variable in your `.env` file or environment before running the bot.
+The bot now also supports balancing BNB between your Spot and Futures wallets, with customizable configuration options.
 
-   Example `.env`:
-   ```
-   BALANCE_SPOT_RATIO=60
-   ```
+To enable and configure BNB balancing, use the following environment variables:
 
-2. **Running the Bot**:
-   The bot will check the current balances in the Spot and Futures wallets and calculate the difference. If the balance difference exceeds 5% from the desired ratio, it will transfer funds between the wallets to achieve the target balance.
+1. **`BALANCE_BNB`**:
+   - Set to `true` to enable BNB balancing, or `false` to disable it.
+   - Default: `false`
 
-#### How It Works:
+2. **`BNB_SPOT_RATIO`**:
+   - Percentage of total BNB balance to allocate to the Spot wallet.
+   - Value should be between 0 and 100.
+   - Default: `50`
 
-- The bot first checks the current balance of both the Spot and Futures wallets.
-- It calculates the total balance (Spot + Futures).
-- Using the `BALANCE_SPOT_RATIO`, the bot determines the amount of funds that should be in the Spot wallet.
-- If the current Spot balance deviates by more than 5% from the target, it will automatically transfer funds between Spot and Futures to achieve the desired balance ratio.
+3. **`BNB_FUTURES_RATIO`**:
+   - Percentage of total BNB balance to allocate to the Futures wallet.
+   - This is automatically calculated as `100 - BNB_SPOT_RATIO`.
 
-#### Example Scenario:
+4. **`BNB_MIN_DIFF_PERCENT`**:
+   - Minimum percentage difference required to trigger a BNB transfer between wallets.
+   - Default: `5`
 
-- **Total Balance**: 1000 USDT (500 USDT in Spot and 500 USDT in Futures)
-- **Desired Spot Ratio**: 60%
-- The bot will calculate:
-  - Desired Spot Balance: 60% of 1000 = 600 USDT
-  - Current Spot Balance: 500 USDT
-- Since the Spot balance is less than 600 USDT, the bot will transfer 100 USDT from the Futures wallet to the Spot wallet.
+#### Example `.env` Configuration:
+
+```
+# API credentials
+BINANCE_API_KEY=your_api_key
+BINANCE_API_SECRET=your_api_secret
+
+# USDT balance configuration
+BALANCE_SPOT_RATIO=60
+
+# BNB balance configuration
+BALANCE_BNB=true
+BNB_SPOT_RATIO=70
+BNB_MIN_DIFF_PERCENT=5
+```
+
+With this configuration:
+- 60% of your total USDT will be allocated to the Spot wallet.
+- BNB balancing is enabled, with 70% of your total BNB allocated to the Spot wallet.
+- The bot will only transfer BNB if the balance difference exceeds 5% of the total BNB balance.
